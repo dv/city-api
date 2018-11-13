@@ -7,4 +7,4 @@ unzip source_file.zip && rm source_file.zip
 mv cities500.txt functions/
 
 # Build functions
-yarn run netlify-lambda build functions
+yarn run netlify-lambda -c webpack.config.js build functions
