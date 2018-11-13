@@ -1,0 +1,4 @@
+[build]
+  publish = "output/html/"
+  functions = "output/functions/"
+  command = "./build.sh"
