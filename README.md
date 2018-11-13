@@ -20,3 +20,8 @@ GET /lookup?name=bruhhe
 yarn install
 yarn run netlify-lambda serve functions
 ```
+
+# Notes
+
+To get the cities500.txt static file as string inside the Javascript source, the webpack configuration was necessary, as well as the `file-loader` module.
+
