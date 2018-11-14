@@ -1,26 +1,12 @@
-var fs = require('fs');
-var readline  = require('linebyline');
+const request = require('request');
+
+console.log(process.env.URL)
+console.log(process.env)
+var deploy_url = process.env.URL || "https://deploy-preview-2--zealous-keller-1b7c9f.netlify.com"
+var cities_url = deploy_url + "/cities500.txt"
 var cities = {};
-var file = readline('output/cities500.txt');
 var done = false;
-
-const { exec } = require('child_process');
-
-var run = function(cmd) {
-  exec(cmd, (err, stdout, stderr) => {
-    if (err) {
-      // node couldn't execute the command
-      return;
-    }
-
-    // the *entire* stdout and stderr (buffered)
-    console.log(`stdout: ${stdout}`);
-    console.log(`stderr: ${stderr}`);
-  });
-}
-
-run("pwd");
-run("ls -lha");
+var requests_waiting = [];
 
 var http_lookup_city = function(city, callback) {
   if (city == "bruhhe") {
@@ -48,11 +34,29 @@ var http_lookup_city = function(city, callback) {
   }
 }
 
-file.on('line', function(line, lineCount, byteCount) {
-  // Inspired by https://github.com/lutangar/cities.json)
-  city = line.split("\t");
+console.log("Loading", cities_url);
 
-  if (lineCount !== 0) {
+var file_stream = request(cities_url);
+var line = "";
+
+var parse_line = function(eof, callback) {
+  parts = line.split("\n");
+
+  if (!eof) {
+    line = parts.pop();
+  } else {
+    line = "";
+  }
+
+  for (city_line of parts) {
+    // process.stdout.write(".");
+    // Inspired by https://github.com/lutangar/cities.json)
+    city = city_line.split("\t");
+
+    if (city.length < 9) {
+      continue;
+    }
+
     // geonameid         : integer id of record in geonames database
     // name              : name of geographical point (utf8) varchar(200)
     // asciiname         : name of geographical point in plain ascii characters, varchar(200)
@@ -86,27 +90,36 @@ file.on('line', function(line, lineCount, byteCount) {
       cities[alternate_name] = cities[name];
     }
   }
-})
 
-file.on('error', function(e) {
-  console.error(e);
+  if (callback) {
+    callback();
+  }
+}
+
+file_stream.on("data", function(chunk) {
+  process.stdout.write(".");
+  line += chunk;
+
+  parse_line(false);
 });
 
-file.on('end', function() {
-  done = true;
+file_stream.on("end", function() {
+  parse_line(true, function() {
+    done = true;
+
+    for (req of requests_waiting) {
+      req();
+    }
+  });
 });
 
 exports.handler = function(event, context, callback) {
   var city_name = event.queryStringParameters["name"].toLowerCase();
 
-  run("pwd");
-  run("ls -lha");
-  run("ls -lha ..");
-
   if (done) {
     http_lookup_city(city_name, callback);
   } else {
-    file.on('end', function() {
+    requests_waiting.push(function() {
       http_lookup_city(city_name, callback);
     });
   }
